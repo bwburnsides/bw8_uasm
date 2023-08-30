@@ -1,0 +1,31 @@
+step(3);
+opcodewidth(8);
+
+field Extended {
+    True, False,
+}
+
+state(12) {
+    Extended,
+}
+
+@include "opcodes.uasm"
+@include "fields.uasm"
+
+microinstruction Fetch {
+    ...
+}
+
+instruction MoveRegister(dst, src) {
+    Fetch,
+    microinstruction {
+        RegisterWriteSelect: AluResult,
+        LeftRegisterSelect: dst,
+        RightRegisterSelect: src,
+        AluFunction: RightPassThrough,
+        #
+        PointerSelect: ProgramCounter,
+        # TODO: Finish
+        End: True,
+    }
+}
