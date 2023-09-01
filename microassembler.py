@@ -1,10 +1,19 @@
 import enum
 from copy import deepcopy
-import sys
 import dataclasses
+from collections import namedtuple
+from typing import Any
 
+
+DataclassField = namedtuple("DataclassField", ("name", "hint", "default"))
 
 class _BaseField(enum.IntEnum):
+    _DEFINED_FIELDS = enum.nonmember([])
+
+    def __init_subclass__(cls):
+        if cls.__name__ != "_Field":
+            _BaseField._DEFINED_FIELDS.append(cls)
+
     def __call__(self, new_value):
         setattr(
             self.owner,
@@ -14,64 +23,148 @@ class _BaseField(enum.IntEnum):
 
         return self.owner
 
+    @classmethod
+    def _by_name(cls, name):
+        for field in cls._DEFINED_FIELDS:
+            if field.__name__ == name:
+                return field
+
+        raise KeyError
+
 
 class Field:
     def __class_getitem__(self, width: int):
         class _Field(_BaseField):
+            _WIDTH = enum.nonmember(width)
+
             @staticmethod
             def _generate_next_value_(name, start, count, last_values):
                 assert count < (2**width)
                 return count
 
-        _Field._WIDTH = width
         return _Field
 
 
 Field.encode = enum.auto
 
 
+class _BaseBus(enum.IntEnum):
+    ...
+
+
 class Bus:
-    _WIDTH = None
-    _FIELDS = {}
+    def __class_getitem__(self, width: int):
+        class _Bus(_BaseBus):
+            _CURRENT_SHIFT = enum.nonmember(0)
 
-    def __class_getitem__(cls, width: int):
-        assert Bus._WIDTH is None
-        Bus._WIDTH = width
-        return cls
+            @staticmethod
+            def _generate_next_value_(name, start, count, last_value):
+                # TODO: Needs more descriptive error.
+                if not any(
+                    name == field.__name__ for field in _BaseField._DEFINED_FIELDS
+                ):
+                    print(f"{name} is not a previously defined Field.")
+                    exit()
 
-    def __init__(self, *fields):
-        assert Bus._WIDTH is not None
-        assert all(issubclass(field, _BaseField) for field in fields)
-        assert sum(field._WIDTH for field in fields) <= Bus._WIDTH
-        Bus._FIELDS = fields
+                value = _Bus._CURRENT_SHIFT
+                _Bus._CURRENT_SHIFT += _BaseField._by_name(name)._WIDTH
 
-        _create_microinstruction(Bus._FIELDS)
+                # TODO: Needs more descriptive error.
+                if _Bus._CURRENT_SHIFT > width:
+                    print("Bus width exceeded.")
+                    exit()
+
+                return value
+
+            def __init_subclass__(cls, *args, **kwargs):
+                cls.MicroInstruction = _create_microinstruction(list(cls))
+
+        return _Bus
+
+
+Bus.place = enum.auto
 
 
 def _create_microinstruction(fields):
-    field_triples = ((field.__name__, field, field(0)) for field in fields)
+    field_triples = (
+        DataclassField(
+            name=field.name, hint=..., default=_BaseField._by_name(field.name)(0)
+        )
+        for field in fields
+    )
 
-    def __MICROINSTRUCTION__post_init__(self):
-        self.LeftRegister.owner = self
-        self.RightRegister.owner = self
+    def __post_init__(self):
+        for field in fields:
+            attr = object.__getattribute__(self, field.name)
+            attr.owner = self
 
-    def __MICROINSTRUCTION__getattribute__(self, name):
-        if name in fields:
+    def __getattribute__(self, name):
+        field_names = (field.name for field in fields)
+
+        if name in field_names:
             copy = deepcopy(self)
+
             for field in fields:
-                object.__getattribute__(copy, field.__name__).owner = copy
+                object.__getattribute__(copy, field.name).owner = copy
 
             return object.__getattribute__(copy, name)
 
         return object.__getattribute__(self, name)
 
     MicroInstruction = dataclasses.make_dataclass(
-        "MicroInstruction",
-        field_triples,
+        cls_name="MicroInstruction",
+        fields=field_triples,
         namespace={
-            "__post_init__": __MICROINSTRUCTION__post_init__,
-            "__getattribute__": __MICROINSTRUCTION__getattribute__,
+            "__post_init__": __post_init__,
+            "__getattribute__": __getattribute__,
         },
     )
 
-    sys.modules[__name__].MicroInstruction = MicroInstruction
+    return MicroInstruction
+
+@dataclasses.dataclass
+class _Instruction:
+    function: ...
+
+    def __call__(self, *args, **kwargs):
+        print(args, kwargs)
+        self.args = args
+        self.kwargs = kwargs
+        return self
+
+
+def Instruction(func):
+    return _Instruction(func)
+
+
+# TODO: This class needs to be dynamically created
+# based on state information provided by the user.
+@dataclasses.dataclass
+class Opcode:
+    name: str
+    Extended: bool = False
+
+    def __post_init__(self):
+        self._definition = None
+
+    def __call__(self, Extended: bool):
+        self.Extended = Extended
+
+
+class OpcodeMeta(type):
+    def __getattribute__(cls, name):
+        opcode = Opcode(name)
+        object.__getattribute__(cls, "_OPCODES").append(opcode)
+        return opcode
+
+    def __setattr__(cls, name: str, value: Any) -> None:
+        if not isinstance(value, _Instruction):
+            return
+
+        for opcode in object.__getattribute__(cls, "_OPCODES"):
+            if opcode.name == name:
+                opcode._definition = value                
+
+
+class Opcodes(metaclass=OpcodeMeta):
+    _OPCODES = []
