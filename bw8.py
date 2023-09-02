@@ -1,4 +1,4 @@
-from microassembler import Field, Bus, Instruction, Opcodes
+from microassembler import Field, Bus, Instruction, Opcode
 
 
 # Field[n] is a generic parent type that represents an n-bit wide field
@@ -48,7 +48,7 @@ FETCH = BW8ControlBus.MicroInstruction(
 # Declare an opcode, as well as any other state information that it is dependent on.
 # NOTE: Implement control state elements.
 # Opcodes must later be defined by providing an instruction definition for each.
-Opcodes.MoveAtoB(Extended=False)
+Opcode.MoveAtoB(Extended=False)
 
 # An instruction is a grouping of MicroInstructions. There are constraints put on the
 # number of MicroInstructions per instruction which are enforced by the target microarchitecture.
@@ -66,6 +66,7 @@ def Move8(dst, src):
         FETCH,
     )
 
+
 # Opcodes are defined by assigning an instruction to them. This tells the
 # microassembler what microinstructions should be assembled for each opcode.
-Opcodes.MoveAtoB = Move8(LeftRegister.B, RightRegister.A)
+Opcode.MoveAtoB = Move8(LeftRegister.B, RightRegister.A)

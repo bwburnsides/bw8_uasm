@@ -7,6 +7,7 @@ from typing import Any
 
 DataclassField = namedtuple("DataclassField", ("name", "hint", "default"))
 
+
 class _BaseField(enum.IntEnum):
     _DEFINED_FIELDS = enum.nonmember([])
 
@@ -122,12 +123,12 @@ def _create_microinstruction(fields):
 
     return MicroInstruction
 
+
 @dataclasses.dataclass
 class _Instruction:
     function: ...
 
     def __call__(self, *args, **kwargs):
-        print(args, kwargs)
         self.args = args
         self.kwargs = kwargs
         return self
@@ -137,34 +138,52 @@ def Instruction(func):
     return _Instruction(func)
 
 
-# TODO: This class needs to be dynamically created
-# based on state information provided by the user.
-@dataclasses.dataclass
-class Opcode:
-    name: str
-    Extended: bool = False
-
-    def __post_init__(self):
-        self._definition = None
-
-    def __call__(self, Extended: bool):
-        self.Extended = Extended
-
-
 class OpcodeMeta(type):
     def __getattribute__(cls, name):
-        opcode = Opcode(name)
-        object.__getattribute__(cls, "_OPCODES").append(opcode)
+        opcodes = super().__getattribute__("_OPCODES")
+
+        try:
+            opcode = opcodes[name]
+        except KeyError:
+            opcode = cls(name)
+            opcodes[name] = opcode
+
         return opcode
 
     def __setattr__(cls, name: str, value: Any) -> None:
         if not isinstance(value, _Instruction):
             return
 
-        for opcode in object.__getattribute__(cls, "_OPCODES"):
-            if opcode.name == name:
-                opcode._definition = value                
+        opcodes = super().__getattribute__("_OPCODES")
+
+        try:
+            opcodes[name]._definition = value
+        except KeyError:
+            ...
 
 
-class Opcodes(metaclass=OpcodeMeta):
-    _OPCODES = []
+# TODO: This class needs to be dynamically created
+# based on state information provided by the user.
+class Opcode(metaclass=OpcodeMeta):
+    _OPCODES = {}
+
+    def __init__(self, name: str, Extended: bool = False):
+        self.name = name
+        self.Extended = Extended
+
+        self._definition = None
+
+    def __call__(self, Extended: bool):
+        self.Extended = Extended
+
+    def __repr__(self) -> str:
+        class_name = object.__getattribute__(self.__class__, "__name__")
+        name = self.name
+        Extended = self.Extended
+        return f"{class_name}({name=}, {Extended=})"
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        return super().__setattr__(name, value)
+
+    def __getattribute__(self, name: str) -> Any:
+        return super().__getattribute__(name)
