@@ -127,63 +127,83 @@ def _create_microinstruction(fields):
 @dataclasses.dataclass
 class _Instruction:
     function: ...
+    base: ...
 
     def __call__(self, *args, **kwargs):
         self.args = args
         self.kwargs = kwargs
+
         return self
 
 
-def Instruction(func):
-    return _Instruction(func)
+def Instruction(*, base=None):
+    def wrapper(func):
+        return _Instruction(func, base=None)
+
+    return wrapper
 
 
 class OpcodeMeta(type):
     def __getattribute__(cls, name):
+        # print(f"OpcodeMeta.__getattribute__({name})")
+
         opcodes = super().__getattribute__("_OPCODES")
 
-        try:
-            opcode = opcodes[name]
-        except KeyError:
-            opcode = cls(name)
-            opcodes[name] = opcode
+        if name not in opcodes:
+            _add_opcode = super().__getattribute__("_add_opcode")
+            _add_opcode(name)
 
-        return opcode
+        return opcodes[name]
 
     def __setattr__(cls, name: str, value: Any) -> None:
+        # print(f"OpcodeMeta.__setattr__({name}, {value})")
+
         if not isinstance(value, _Instruction):
             return
 
         opcodes = super().__getattribute__("_OPCODES")
+        if name not in opcodes:
+            print(f"Opcode {name} does not exist.")
+            exit()
 
-        try:
-            opcodes[name]._definition = value
-        except KeyError:
-            ...
+        opcodes[name]._definition = value
+
+    def _add_opcode(cls, name: str):
+        opcodes = super().__getattribute__("_OPCODES")
+        opcodes[name] = cls(name)
 
 
 # TODO: This class needs to be dynamically created
 # based on state information provided by the user.
+# TODO TODO: or should it 🤔
 class Opcode(metaclass=OpcodeMeta):
     _OPCODES = {}
 
     def __init__(self, name: str, Extended: bool = False):
+        # print(f"Opcode.__init__({name}, {Extended=})")
+
         self.name = name
         self.Extended = Extended
 
         self._definition = None
 
-    def __call__(self, Extended: bool):
+    def _existed(self):
+        existed = hasattr(self, "_initialized") and self._initialized == True
+        self._initialized = True
+        return existed
+
+    def __call__(self, Extended: bool = False):
+        # print(f"Opcode.__call__({Extended=})")
+
+        if self._existed():
+            print(f"Redefinition of Opcode {self.name}")
+            exit()
+
         self.Extended = Extended
 
     def __repr__(self) -> str:
         class_name = object.__getattribute__(self.__class__, "__name__")
         name = self.name
         Extended = self.Extended
+
         return f"{class_name}({name=}, {Extended=})"
-
-    def __setattr__(self, name: str, value: Any) -> None:
-        return super().__setattr__(name, value)
-
-    def __getattribute__(self, name: str) -> Any:
-        return super().__getattribute__(name)

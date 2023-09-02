@@ -1,45 +1,36 @@
-from microassembler import Field, Bus, Instruction, Opcode
+from microassembler import Instruction, Opcode
+from uarch import Bw8ControlBus, LeftRegister, RightRegister
 
-
-class LeftRegister(Field[2]):
-    A = Field.encode()
-    B = Field.encode()
-    C = Field.encode()
-    D = Field.encode()
-
-
-class RightRegister(Field[2]):
-    A = Field.encode()
-    B = Field.encode()
-    C = Field.encode()
-    D = Field.encode()
-
-
-class BW8ControlBus(Bus[4]):
-    LeftRegister = Bus.place()
-    RightRegister = Bus.place()
-
-
-FETCH = BW8ControlBus.MicroInstruction(
+FETCH = Bw8ControlBus.MicroInstruction(
     LeftRegister=LeftRegister.A,
     RightRegister=RightRegister.A,
 )
 
 
-Opcode.MoveAtoB(Extended=False)
+InstructionBase = Instruction(base=None)
+
+Bw8Instruction = Instruction(
+    base=lambda opcode: ExtendedBase if opcode.Extended else NormalBase
+)
 
 
-@Instruction
+@InstructionBase
+def NormalBase():
+    return (FETCH,)
+
+
+@InstructionBase
+def ExtendedBase():
+    return (FETCH, FETCH.SetExtension(True))
+
+
+@Bw8Instruction
 def Move8(dst, src):
-    return (
-        FETCH,
-        BW8ControlBus.MicroInstruction(
-            LeftRegister=LeftRegister.A, RightRegister=RightRegister.A
-        )
-        .LeftRegister(dst)
-        .RightRegister(src),
-        FETCH,
-    )
+    return (FETCH, Bw8ControlBus.MicroInstruction(LeftRegister=dst, RightRegister=src))
 
 
-Opcode.MoveAtoB = Move8(LeftRegister.B, RightRegister.A)
+# Opcode Declaration
+Opcode.MoveAtoB(Extended=True)
+
+# Opcode Definition
+Opcode.MoveAtoB = Move8(LeftRegister.B, LeftRegister.A)
