@@ -1,31 +1,39 @@
-step(3);
-opcodewidth(8);
+# Microassembly for bw8 microprogram
 
-field Extended {
-    True, False,
+@include state
+@include opcodes
+
+@microinstruction FETCH {
+    RegisterWriteBack: MemoryData,
+    RegisterLoad: Instruction,
+    PointerSelect: ProgramCounter,
+    OffsetMode: Increment,
 }
 
-state(12) {
-    Extended,
+@instruction NormalBase {
+    FETCH,
 }
 
-@include "opcodes.uasm"
-@include "fields.uasm"
-
-microinstruction Fetch {
-    ...
+@instruction ExtendedBase {
+    FETCH,
+    FETCH.SetExtension(True),
 }
 
-instruction MoveRegister(dst, src) {
-    Fetch,
-    microinstruction {
-        RegisterWriteSelect: AluResult,
-        LeftRegisterSelect: dst,
-        RightRegisterSelect: src,
-        AluFunction: RightPassThrough,
-        #
-        PointerSelect: ProgramCounter,
-        # TODO: Finish
-        End: True,
-    }
+@rule Extended = False {
+    @base NormalBase
 }
+
+@rule Extended = True { 
+    @base ExtendedBase
+}
+
+@instruction Move8(dst, src) {
+    @microinstruction {
+        RegisterWriteBack: AluResult
+    }.RegisterLeft(dst).RegisterRight(src),
+}
+
+@define MoveAtoB: Move8(RegisterLeft.A, RegisterRight.B)
+@define MoveAtoC: Move8(RegisterLeft.A, RegisterRight.C)
+@define MoveAtoD: Move8(RegisterLeft.A, RegisterRight.D)
+@define MoveBtoA: Move8(RegisterLeft.B, RegisterRight.A)

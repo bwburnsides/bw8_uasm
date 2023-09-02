@@ -1,4 +1,4 @@
-field(3) RegisterLoad {
+@field(3) RegisterLoad {
     A,
     B,
     C,
@@ -9,7 +9,7 @@ field(3) RegisterLoad {
     Instruction,
 }
 
-field(3) LeftSelect {
+@field(3) LeftSelect {
     A,
     B,
     C,
@@ -18,7 +18,7 @@ field(3) LeftSelect {
     Zero,
 }
 
-field(3) RightSelect {
+@field(3) RightSelect {
     A,
     B,
     C,
@@ -26,17 +26,17 @@ field(3) RightSelect {
     Temporary,
 }
 
-field(1) RegisterWriteSelect {
+@field(1) RegisterWriteSelect {
     MemoryDataRegister,
     AluResult,
 }
 
 # TBD
-field(4) AluFunction {
+@field(4) AluFunction {
     RightPassThrough,
 }
 
-field(1) ResultSelect {
+@field(1) ResultSelect {
     Status,
     AluResult,
 }

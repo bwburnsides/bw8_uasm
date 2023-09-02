@@ -6,5 +6,8 @@
 mod uasm;
 
 fn main() {
+    let source_name = String::from("../bw8_microassembly/bw8.uasm");
+    let tokens = uasm::lex::tokenize(source_name);
+
     println!("Hello, world!");
 }

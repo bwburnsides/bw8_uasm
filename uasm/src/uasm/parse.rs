@@ -4,7 +4,7 @@ struct Field {
 }
 
 struct IncludeDeclaration {
-    module_name: String,    
+    module_name: String,
 }
 
 struct BitFieldDefinition {
@@ -28,7 +28,7 @@ struct StateDefinition {
 
 struct OpcodeDeclaration {
     name: String,
-    state_fields: Vec<Field>
+    state_fields: Vec<Field>,
 }
 
 struct MicroInstructionDefinition {
